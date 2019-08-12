@@ -1,97 +1,97 @@
-## SimInf, a framework for stochastic disease spread simulations
-## Copyright (C) 2015 - 2017  Stefan Widgren
+## This file is part of SimInf, a framework for stochastic
+## disease spread simulations.
 ##
-## This program is free software: you can redistribute it and/or modify
+## Copyright (C) 2015 Pavol Bauer
+## Copyright (C) 2017 -- 2019 Robin Eriksson
+## Copyright (C) 2015 -- 2019 Stefan Engblom
+## Copyright (C) 2015 -- 2019 Stefan Widgren
+##
+## SimInf is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
 ## (at your option) any later version.
 ##
-## This program is distributed in the hope that it will be useful,
+## SimInf is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-library("SimInf")
+library(SimInf)
+library(tools)
+source("util/check.R")
+
+## Specify the number of threads to use.
+set_num_threads(1)
 
 ## For debugging
 sessionInfo()
 
 ## Check invalid u0
-res <- tools::assertError(SIR(u0 = "u0"))
-stopifnot(length(grep("Missing columns in u0",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0 = "u0"))
+check_error(res, "Missing columns in u0.")
 
-u0 <- structure(list(S  = c(0, 1, 2, 3, 4, 5),
-                     I  = c(0, 0, 0, 0, 0, 0),
-                     R  = c(0, 0, 0, 0, 0, 0)),
-                .Names = c("S", "I", "R"),
-                row.names = c(NA, -6L), class = "data.frame")
+u0 <- data.frame(S  = c(0, 1, 2, 3, 4, 5),
+                 I  = c(0, 0, 0, 0, 0, 0),
+                 R  = c(0, 0, 0, 0, 0, 0))
 
 ## Check missing columns in u0
-res <- tools::assertError(SIR(u0 = u0[, c("I", "R"), drop = FALSE]))
-stopifnot(length(grep("Missing columns in u0",
-                      res[[1]]$message)) > 0)
-res <- tools::assertError(SIR(u0 = u0[, c("S", "R"), drop = FALSE]))
-stopifnot(length(grep("Missing columns in u0",
-                      res[[1]]$message)) > 0)
-res <- tools::assertError(SIR(u0 = u0[, c("S", "I"), drop = FALSE]))
-stopifnot(length(grep("Missing columns in u0",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0 = u0[, c("I", "R"), drop = FALSE]))
+check_error(res, "Missing columns in u0.")
+
+res <- assertError(SIR(u0 = u0[, c("S", "R"), drop = FALSE]))
+check_error(res, "Missing columns in u0.")
+
+res <- assertError(SIR(u0 = u0[, c("S", "I"), drop = FALSE]))
+check_error(res, "Missing columns in u0.")
 
 ## Check missing beta
-res <- tools::assertError(SIR(u0     = u0,
-                              tspan  = seq_len(10) - 1,
-                              events = NULL,
-                              gamma  = 0.5))
-stopifnot(length(grep("'beta' is missing",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0     = u0,
+                       tspan  = seq_len(10) - 1,
+                       events = NULL,
+                       gamma  = 0.5))
+check_error(res, "'beta' must be numeric of length 1.")
 
 ## Check missing gamma
-res <- tools::assertError(SIR(u0     = u0,
-                              tspan  = seq_len(10) - 1,
-                              events = NULL,
-                              beta   = 0.5))
-stopifnot(length(grep("'gamma' is missing",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0     = u0,
+                       tspan  = seq_len(10) - 1,
+                       events = NULL,
+                       beta   = 0.5))
+check_error(res, "'gamma' must be numeric of length 1.")
 
 ## Check non-numeric beta
-res <- tools::assertError(SIR(u0      = u0,
-                              tspan   = seq_len(10) - 1,
-                              events  = NULL,
-                              beta    = "0.5",
-                              gamma   = 0.1))
-stopifnot(length(grep("'beta' must be numeric",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0      = u0,
+                       tspan   = seq_len(10) - 1,
+                       events  = NULL,
+                       beta    = "0.5",
+                       gamma   = 0.1))
+check_error(res, "'beta' must be numeric of length 1.")
 
 ## Check non-numeric gamma
-res <- tools::assertError(SIR(u0      = u0,
-                              tspan   = seq_len(10) - 1,
-                              events  = NULL,
-                              beta    = 0.5,
-                              gamma   = "0.1"))
-stopifnot(length(grep("'gamma' must be numeric",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0      = u0,
+                       tspan   = seq_len(10) - 1,
+                       events  = NULL,
+                       beta    = 0.5,
+                       gamma   = "0.1"))
+check_error(res, "'gamma' must be numeric of length 1.")
 
 ## Check that length of beta equals 1
-res <- tools::assertError(SIR(u0      = u0,
-                              tspan   = seq_len(10) - 1,
-                              events  = NULL,
-                              beta    = c(0.5, 0.5),
-                              gamma   = 0.1))
-stopifnot(length(grep("'beta' must be of length 1",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0      = u0,
+                       tspan   = seq_len(10) - 1,
+                       events  = NULL,
+                       beta    = c(0.5, 0.5),
+                       gamma   = 0.1))
+check_error(res, "'beta' must be numeric of length 1.")
 
 ## Check that length of gamma equals 1
-res <- tools::assertError(SIR(u0      = u0,
-                              tspan   = seq_len(10) - 1,
-                              events  = NULL,
-                              beta    = 0.5,
-                              gamma   = c(0.1, 0.1)))
-stopifnot(length(grep("'gamma' must be of length 1",
-                      res[[1]]$message)) > 0)
+res <- assertError(SIR(u0      = u0,
+                       tspan   = seq_len(10) - 1,
+                       events  = NULL,
+                       beta    = 0.5,
+                       gamma   = c(0.1, 0.1)))
+check_error(res, "'gamma' must be numeric of length 1.")
 
 ## Extract data from the 'suscpetible', 'infected' and 'recovered'
 ## compartments
@@ -101,17 +101,14 @@ model <- SIR(u0     = u0,
              beta   = 0,
              gamma  = 0)
 
-result <- run(model, threads = 1)
+result <- run(model)
 
 S_expected <- structure(c(0L, 1L, 2L, 3L, 4L, 5L, 0L, 1L, 2L, 3L, 4L, 5L, 0L,
                           1L, 2L, 3L, 4L, 5L, 0L, 1L, 2L, 3L, 4L, 5L, 0L, 1L,
                           2L, 3L, 4L, 5L, 0L, 1L, 2L, 3L, 4L, 5L, 0L, 1L, 2L,
                           3L, 4L, 5L, 0L, 1L, 2L, 3L, 4L, 5L, 0L, 1L, 2L, 3L,
                           4L, 5L, 0L, 1L, 2L, 3L, 4L, 5L),
-                        .Dim = c(6L, 10L),
-                        .Dimnames = list(c("S", "S", "S", "S", "S", "S"),
-                                         c("0", "1", "2", "3", "4", "5",
-                                           "6", "7", "8", "9")))
+                        .Dim = c(6L, 10L))
 
 S_observed <- trajectory(result, compartments = "S", as.is = TRUE)
 stopifnot(identical(S_observed, S_expected))
@@ -121,10 +118,7 @@ I_expected <- structure(c(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
-                        .Dim = c(6L, 10L),
-                        .Dimnames = list(c("I", "I", "I", "I", "I", "I"),
-                                         c("0", "1", "2", "3", "4", "5",
-                                           "6", "7", "8", "9")))
+                        .Dim = c(6L, 10L))
 
 I_observed <- trajectory(result, compartments = "I", as.is = TRUE)
 stopifnot(identical(I_observed, I_expected))
@@ -134,10 +128,7 @@ R_expected <- structure(c(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L,
                           0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
-                        .Dim = c(6L, 10L),
-                        .Dimnames = list(c("R", "R", "R", "R", "R", "R"),
-                                         c("0", "1", "2", "3", "4", "5",
-                                           "6", "7", "8", "9")))
+                        .Dim = c(6L, 10L))
 
 R_observed <- trajectory(result, compartments = "R", as.is = TRUE)
 
@@ -195,22 +186,18 @@ stopifnot(file.exists(pdf_file))
 unlink(pdf_file)
 
 ## Check that C SIR run function fails for misspecified SIR model
-res <- tools::assertError(.Call("SIR_run", NULL, NULL, NULL, PACKAGE = "SimInf"))
-stopifnot(length(grep("Invalid model.",
-                      res[[1]]$message)) > 0)
+res <- assertError(.Call(SimInf:::SIR_run, NULL, NULL, NULL))
+check_error(res, "Invalid model.")
 
-res <- tools::assertError(.Call("SIR_run", "SIR", NULL, NULL, PACKAGE = "SimInf"))
-stopifnot(length(grep("Invalid model.",
-                      res[[1]]$message)) > 0)
+res <- assertError(.Call(SimInf:::SIR_run, "SIR", NULL, NULL))
+check_error(res, "Invalid model.")
 
 ## Check events method
-res <- tools::assertError(events())
-stopifnot(length(grep("Missing 'model' argument",
-                      res[[1]]$message)) > 0)
+res <- assertError(events())
+check_error(res, "Missing 'model' argument.")
 
-res <- tools::assertError(events(5))
-stopifnot(length(grep("'model' argument is not a 'SimInf_model",
-                      res[[1]]$message)) > 0)
+res <- assertError(events(5))
+check_error(res, "'model' argument is not a 'SimInf_model'.")
 
 model <- SIR(u0     = u0_SIR(),
              tspan  = seq_len(365 * 4),
@@ -224,9 +211,9 @@ model <- SIR(u0 = data.frame(S = rep(99, 2), I = 1, R = 0),
              tspan = 1:100,
              beta = 0.16,
              gamma = -0.077)
-res <- tools::assertError(run(model, solver = "ssm"))
-stopifnot(length(grep("Invalid rate detected (non-finite or < 0.0)",
-                      res[[1]]$message, fixed = TRUE)) > 0)
-res <- tools::assertError(run(model, solver = "aem"))
-stopifnot(length(grep("Invalid rate detected (non-finite or < 0.0)",
-                      res[[1]]$message, fixed = TRUE)) > 0)
+
+res <- assertError(run(model, solver = "ssm"))
+check_error(res, "Invalid rate detected (non-finite or < 0.0).")
+
+res <- assertError(run(model, solver = "aem"))
+check_error(res, "Invalid rate detected (non-finite or < 0.0).")

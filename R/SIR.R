@@ -1,18 +1,23 @@
-## SimInf, a framework for stochastic disease spread simulations
-## Copyright (C) 2015 - 2017  Stefan Widgren
+## This file is part of SimInf, a framework for stochastic
+## disease spread simulations.
 ##
-## This program is free software: you can redistribute it and/or modify
+## Copyright (C) 2015 Pavol Bauer
+## Copyright (C) 2017 -- 2019 Robin Eriksson
+## Copyright (C) 2015 -- 2019 Stefan Engblom
+## Copyright (C) 2015 -- 2019 Stefan Widgren
+##
+## SimInf is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
 ## (at your option) any later version.
 ##
-## This program is distributed in the hope that it will be useful,
+## SimInf is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ##' Definition of the \acronym{SIR} model
 ##'
@@ -21,7 +26,8 @@
 ##' The \acronym{SIR} model contains three compartments; number of
 ##' susceptible (S), number of infectious (I), and number of
 ##' recovered (R).  Moreover, it has two state transitions,
-##' \deqn{S \stackrel{\beta S I / N}{\longrightarrow} I}{S -- beta S I / N --> I}
+##' \deqn{S \stackrel{\beta S I / N}{\longrightarrow} I}{
+##'   S -- beta S I / N --> I}
 ##' \deqn{I \stackrel{\gamma I}{\longrightarrow} R}{I -- gamma I --> R}
 ##' where \eqn{\beta} is the transmission rate, \eqn{\gamma} is the
 ##' recovery rate, and \eqn{N=S+I}.
@@ -48,7 +54,8 @@ setClass("SIR", contains = c("SimInf_model"))
 ##' The \acronym{SIR} model contains three compartments; number of
 ##' susceptible (S), number of infectious (I), and number of
 ##' recovered (R).  Moreover, it has two state transitions,
-##' \deqn{S \stackrel{\beta S I / N}{\longrightarrow} I}{S -- beta S I / N --> I}
+##' \deqn{S \stackrel{\beta S I / N}{\longrightarrow} I}{
+##'   S -- beta S I / N --> I}
 ##' \deqn{I \stackrel{\gamma I}{\longrightarrow} R}{I -- gamma I --> R}
 ##' where \eqn{\beta} is the transmission rate, \eqn{\gamma} is the
 ##' recovery rate, and \eqn{N=S+I+R}.
@@ -84,18 +91,13 @@ SIR <- function(u0,
                 tspan,
                 events = NULL,
                 beta   = NULL,
-                gamma  = NULL)
-{
+                gamma  = NULL) {
     compartments <- c("S", "I", "R")
 
     ## Check arguments.
 
-    ## Check u0
-    if (!is.data.frame(u0))
-        u0 <- as.data.frame(u0)
-    if (!all(compartments %in% names(u0)))
-        stop("Missing columns in u0")
-    u0 <- u0[, compartments, drop = FALSE]
+    ## Check u0 and compartments
+    u0 <- check_u0(u0, compartments)
 
     ## Check for non-numeric parameters
     check_gdata_arg(beta, gamma)
@@ -107,7 +109,9 @@ SIR <- function(u0,
                 dimnames = list(compartments, c("1", "2", "3", "4")))
 
     G <- matrix(c(1, 1, 1, 1), nrow = 2, ncol = 2,
-                dimnames = list(c("S -> I", "I -> R"), c("1", "2")))
+                dimnames = list(c("S -> beta*S*I/(S+I+R) -> I",
+                                  "I -> gamma*I -> R"),
+                                c("1", "2")))
 
     S <- matrix(c(-1, 1, 0, 0, -1, 1), nrow = 3, ncol = 2,
                 dimnames = list(compartments, c("1", "2")))
@@ -163,7 +167,7 @@ SIR <- function(u0,
 ##' plot(events(model))
 ##'
 ##' ## Run the model to generate a single stochastic trajectory.
-##' result <- run(model, threads = 1)
+##' result <- run(model)
 ##' plot(result)
 ##'
 ##' ## Summarize the trajectory. The summary includes the number of
@@ -204,7 +208,7 @@ events_SIR <- function() {
 ##'              gamma  = 0.01)
 ##'
 ##' ## Run the model to generate a single stochastic trajectory.
-##' result <- run(model, threads = 1)
+##' result <- run(model)
 ##' plot(result)
 ##'
 ##' ## Summarize trajectory

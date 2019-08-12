@@ -1,22 +1,24 @@
 /*
- *  SimInf, a framework for stochastic disease spread simulations
- *  Copyright (C) 2015 Pavol Bauer
- *  Copyright (C) 2017 - 2018 Robin Eriksson
- *  Copyright (C) 2015 - 2018 Stefan Engblom
- *  Copyright (C) 2015 - 2018 Stefan Widgren
+ * This file is part of SimInf, a framework for stochastic
+ * disease spread simulations.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Copyright (C) 2015 Pavol Bauer
+ * Copyright (C) 2017 -- 2019 Robin Eriksson
+ * Copyright (C) 2015 -- 2019 Stefan Engblom
+ * Copyright (C) 2015 -- 2019 Stefan Widgren
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * SimInf is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * SimInf is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <string.h>
@@ -53,14 +55,13 @@
  *        proportion. 0 <= proportion <= 1.
  * @param individuals The result of the sampling is stored in the
  *        individuals vector.
- * @param u_tmp Help vector for sampling individuals.
  * @param rng Random number generator.
  * @return 0 if Ok, else error code.
  */
 static int SimInf_sample_select(
     const int *irE, const int *jcE, int Nc, const int *u,
     int node, int select, int n, double proportion,
-    int *individuals, int *u_tmp, gsl_rng *rng)
+    int *individuals, gsl_rng *rng)
 {
     int i, Nstates, Nindividuals = 0, Nkinds = 0;
 
@@ -114,37 +115,23 @@ static int SimInf_sample_select(
         return 0;
     }
 
-    /* Handle cases that require random sampling */
-    if (Nstates == 2) {
-        /* Sample from the hypergeometric distribution */
-        i = jcE[select];
+    /* Sample from the hypergeometric distribution. For a multivariate
+     * hypergeometric distribution, use the algortihm described by
+     * James E. Gentle (2003, page 206) in 'Random Number Generation
+     * and Monte Carlo Methods'.*/
+    for (i = jcE[select]; i < jcE[select + 1] - 1; i++) {
+        if (n == 0)
+            break;
+
         individuals[irE[i]] = gsl_ran_hypergeometric(
-            rng,
-            u[node * Nc + irE[i]],
-            u[node * Nc + irE[i+1]],
-            n);
-        individuals[irE[i+1]] = n - individuals[irE[i]];
-    } else {
-        /* Randomly sample n individuals from Nindividudals in
-         * the Nstates */
-        memcpy(u_tmp, &u[node * Nc], Nc * sizeof(int));
-        while (n > 0) {
-            double cum, rand = gsl_rng_uniform_pos(rng) * Nindividuals;
+            rng, u[node * Nc + irE[i]],
+            Nindividuals - u[node * Nc + irE[i]], n);
 
-            /* Determine from which compartment the individual was
-             * sampled from */
-            for (i = jcE[select], cum = u_tmp[irE[i]];
-                 i < jcE[select + 1] && rand > cum;
-                 i++, cum += u_tmp[irE[i]]);
-
-            /* Update sampled individual */
-            u_tmp[irE[i]]--;
-            individuals[irE[i]]++;
-
-            Nindividuals--;
-            n--;
-        }
+        Nindividuals -= u[node * Nc + irE[i]];
+        n -= individuals[irE[i]];
     }
+
+    individuals[irE[i]] = n;
 
     return 0;
 }
@@ -175,41 +162,30 @@ static int SimInf_sample_select(
  *        transfer event.
  * @param Nn Total number of nodes.
  * @param Nthread Number of threads to use during simulation.
- * @return 0 if Ok, else error code.
  */
-static int SimInf_split_events(
+static void SimInf_split_events(
     SimInf_scheduled_events *out,
     int len, const int *event, const int *time, const int *node,
     const int *dest, const int *n, const double *proportion,
     const int *select, const int *shift, int Nn, int Nthread)
 {
     int i;
-    int chunk_size = Nn / Nthread;
+    const int chunk_size = Nn / Nthread;
 
     for (i = 0; i < len; i++) {
-        int j;
         const SimInf_scheduled_event e = {event[i], time[i], node[i] - 1,
                                           dest[i] - 1, n[i], proportion[i],
                                           select[i] - 1, shift[i] - 1};
 
-        switch (event[i]) {
-        case EXIT_EVENT:
-        case ENTER_EVENT:
-        case INTERNAL_TRANSFER_EVENT:
-            j = (node[i] - 1) / chunk_size;
+        if (event[i] == EXTERNAL_TRANSFER_EVENT) {
+            kv_push(SimInf_scheduled_event, out[0].events, e);
+        } else {
+            int j = (node[i] - 1) / chunk_size;
             if (j >= Nthread)
                 j = Nthread - 1;
             kv_push(SimInf_scheduled_event, out[j].events, e);
-            break;
-        case EXTERNAL_TRANSFER_EVENT:
-            kv_push(SimInf_scheduled_event, out[0].events, e);
-            break;
-        default:
-            return SIMINF_UNDEFINED_EVENT;
         }
     }
-
-    return 0;
 }
 
 /**
@@ -247,10 +223,6 @@ int SimInf_scheduled_events_create(
         if (!events[i].individuals)
             goto on_error;
 
-        events[i].u_tmp = calloc(args->Nc, sizeof(int));
-        if (!events[i].u_tmp)
-            goto on_error;
-
         /* Random number generator */
         events[i].rng = gsl_rng_alloc(gsl_rng_mt19937);
         if (!events[i].rng)
@@ -259,12 +231,10 @@ int SimInf_scheduled_events_create(
     }
 
     /* Split scheduled events into E1 and E2 events. */
-    error = SimInf_split_events(
+    SimInf_split_events(
         events, args->len, args->event, args->time, args->node,
         args->dest, args->n, args->proportion, args->select,
         args->shift, args->Nn, args->Nthread);
-    if (error)
-        goto on_error;
 
     *out = events;
     return 0;
@@ -293,8 +263,6 @@ void SimInf_scheduled_events_free(
                 kv_destroy(e->events);
                 free(e->individuals);
                 e->individuals = NULL;
-                free(e->u_tmp);
-                e->u_tmp = NULL;
                 gsl_rng_free(e->rng);
                 e->rng = NULL;
             }
@@ -452,7 +420,7 @@ void SimInf_process_events(
         case EXIT_EVENT:
             m.error = SimInf_sample_select(
                 e.irE, e.jcE, m.Nc, m.u, ee.node - m.Ni, ee.select,
-                ee.n, ee.proportion, e.individuals, e.u_tmp, e.rng);
+                ee.n, ee.proportion, e.individuals, e.rng);
 
             if (m.error) {
                 SimInf_print_event(&ee, e.irE, e.jcE, m.Nc,
@@ -506,7 +474,7 @@ void SimInf_process_events(
 
             m.error = SimInf_sample_select(
                 e.irE, e.jcE, m.Nc, m.u, ee.node - m.Ni, ee.select,
-                ee.n, ee.proportion, e.individuals, e.u_tmp, e.rng);
+                ee.n, ee.proportion, e.individuals, e.rng);
 
             if (m.error) {
                 SimInf_print_event(&ee, e.irE, e.jcE, m.Nc,
@@ -562,7 +530,7 @@ void SimInf_process_events(
 
             m.error = SimInf_sample_select(
                 e.irE, e.jcE, m.Nc, m.u, ee.node, ee.select, ee.n,
-                ee.proportion, e.individuals, e.u_tmp, e.rng);
+                ee.proportion, e.individuals, e.rng);
 
             if (m.error) {
                 SimInf_print_event(&ee, e.irE, e.jcE, m.Nc,
@@ -672,7 +640,7 @@ void SimInf_store_solution_sparse(SimInf_compartment_model *model)
         /* Copy continuous state to V_sparse */
         for (j = model[0].jcV[model[0].V_it];
              j < model[0].jcV[model[0].V_it + 1]; j++)
-            model[0].prV[j] = model[0].v_new[model[0].irV[j]];
+            model[0].prV[j] = model[0].v[model[0].irV[j]];
         model[0].V_it++;
     }
 }
@@ -788,8 +756,8 @@ int SimInf_compartment_model_create(
         model[i].next_unit_of_time = floor(model[i].tt) + 1.0;
         model[i].tspan = args->tspan;
         model[i].tlen = args->tlen;
-        model[i].U_it = 1;
-        model[i].V_it = 1;
+        model[i].U_it = 0;
+        model[i].V_it = 0;
 
         /* Data vectors */
         if (args->U) {

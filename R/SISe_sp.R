@@ -1,19 +1,23 @@
-## SimInf, a framework for stochastic disease spread simulations
-## Copyright (C) 2015 - 2017  Stefan Engblom
-## Copyright (C) 2015 - 2017  Stefan Widgren
+## This file is part of SimInf, a framework for stochastic
+## disease spread simulations.
 ##
-## This program is free software: you can redistribute it and/or modify
+## Copyright (C) 2015 Pavol Bauer
+## Copyright (C) 2017 -- 2019 Robin Eriksson
+## Copyright (C) 2015 -- 2019 Stefan Engblom
+## Copyright (C) 2015 -- 2019 Stefan Widgren
+##
+## SimInf is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
 ## (at your option) any later version.
 ##
-## This program is distributed in the hope that it will be useful,
+## SimInf is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ##' Definition of the \code{SISe_sp} model
 ##'
@@ -68,18 +72,13 @@ SISe_sp <- function(u0,
                     end_t3   = NULL,
                     end_t4   = NULL,
                     coupling = NULL,
-                    distance = NULL)
-{
+                    distance = NULL) {
     compartments <- c("S", "I")
 
     ## Check arguments.
 
-    ## Check u0
-    if (!is.data.frame(u0))
-        u0 <- as.data.frame(u0)
-    if (!all(compartments %in% names(u0)))
-        stop("Missing columns in u0")
-    u0 <- u0[, compartments, drop = FALSE]
+    ## Check u0 and compartments
+    u0 <- check_u0(u0, compartments)
 
     ## Check initial infectious pressure
     if (is.null(phi))
@@ -99,13 +98,7 @@ SISe_sp <- function(u0,
     end_t4 <- rep(end_t4, length.out = nrow(u0))
     check_end_t_arg(nrow(u0), end_t1, end_t2, end_t3, end_t4)
 
-    ## Check distance matrix
-    if (is.null(distance))
-        stop("'distance' is missing")
-    if (!is(distance, "dgCMatrix"))
-        stop("The 'distance' argument must be of type 'dgCMatrix'")
-    if (any(distance < 0))
-        stop("All values in the 'distance' matrix must be >= 0")
+    check_distance_matrix(distance)
 
     ## Arguments seem ok...go on
 
@@ -113,7 +106,8 @@ SISe_sp <- function(u0,
                 dimnames = list(compartments, c("1", "2")))
 
     G <- matrix(c(1, 1, 1, 1), nrow = 2, ncol = 2,
-                dimnames = list(c("S -> I", "I -> S"),
+                dimnames = list(c("S -> upsilon*phi*S -> I",
+                                  "I -> gamma*I -> S"),
                                 c("1", "2")))
 
     S <- matrix(c(-1,  1, 1, -1), nrow = 2, ncol = 2,
@@ -123,8 +117,9 @@ SISe_sp <- function(u0,
                  dimnames = list("phi"))
 
     ldata <- matrix(as.numeric(c(end_t1, end_t2, end_t3, end_t4)),
-                    nrow = 4, byrow = TRUE)
-    ldata <- .Call("SimInf_ldata_sp", ldata, distance, 1L, PACKAGE = "SimInf")
+                    nrow = 4, byrow = TRUE,
+                    dimnames = list(c("end_t1", "end_t2", "end_t3", "end_t4")))
+    ldata <- .Call(SimInf_ldata_sp, ldata, distance, 1L)
 
     gdata <- as.numeric(c(upsilon, gamma, alpha, beta_t1, beta_t2,
                           beta_t3, beta_t4, coupling))

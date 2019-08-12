@@ -1,20 +1,23 @@
-## SimInf, a framework for stochastic disease spread simulations
-## Copyright (C) 2015  Pavol Bauer
-## Copyright (C) 2015 - 2017  Stefan Engblom
-## Copyright (C) 2015 - 2017  Stefan Widgren
+## This file is part of SimInf, a framework for stochastic
+## disease spread simulations.
 ##
-## This program is free software: you can redistribute it and/or modify
+## Copyright (C) 2015 Pavol Bauer
+## Copyright (C) 2017 -- 2019 Robin Eriksson
+## Copyright (C) 2015 -- 2019 Stefan Engblom
+## Copyright (C) 2015 -- 2019 Stefan Widgren
+##
+## SimInf is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
 ## the Free Software Foundation, either version 3 of the License, or
 ## (at your option) any later version.
 ##
-## This program is distributed in the hope that it will be useful,
+## SimInf is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ##' Definition of the \code{SISe} model
 ##'
@@ -65,18 +68,13 @@ SISe <- function(u0,
                  end_t2  = NULL,
                  end_t3  = NULL,
                  end_t4  = NULL,
-                 epsilon = NULL)
-{
+                 epsilon = NULL) {
     compartments <- c("S", "I")
 
     ## Check arguments.
 
-    ## Check u0
-    if (!is.data.frame(u0))
-        u0 <- as.data.frame(u0)
-    if (!all(compartments %in% names(u0)))
-        stop("Missing columns in u0")
-    u0 <- u0[, compartments, drop = FALSE]
+    ## Check u0 and compartments
+    u0 <- check_u0(u0, compartments)
 
     ## Check initial infectious pressure
     if (is.null(phi))
@@ -102,7 +100,9 @@ SISe <- function(u0,
                 dimnames = list(compartments, c("1", "2")))
 
     G <- matrix(c(1, 1, 1, 1), nrow = 2, ncol = 2,
-                dimnames = list(c("S -> I", "I -> S"), c("1", "2")))
+                dimnames = list(c("S -> upsilon*phi*S -> I",
+                                  "I -> gamma*I -> S"),
+                                c("1", "2")))
 
     S <- matrix(c(-1,  1, 1, -1), nrow = 2, ncol = 2,
                 dimnames = list(compartments, c("1", "2")))
@@ -111,7 +111,8 @@ SISe <- function(u0,
                  dimnames = list("phi"))
 
     ldata <- matrix(as.numeric(c(end_t1, end_t2, end_t3, end_t4)),
-                    nrow  = 4, byrow = TRUE)
+                    nrow  = 4, byrow = TRUE,
+                    dimnames = list(c("end_t1", "end_t2", "end_t3", "end_t4")))
 
     gdata <- as.numeric(c(upsilon, gamma, alpha, beta_t1, beta_t2,
                           beta_t3, beta_t4, epsilon))
@@ -168,7 +169,7 @@ SISe <- function(u0,
 ##' plot(events(model))
 ##'
 ##' ## Run the model to generate a single stochastic trajectory.
-##' result <- run(model, threads = 1)
+##' result <- run(model)
 ##'
 ##' ## Summarize the trajectory. The summary includes the number of
 ##' ## events by event type.
@@ -218,7 +219,7 @@ events_SISe <- function() {
 ##'               end_t3 = 273, end_t4 = 365, epsilon = 0)
 ##'
 ##' ## Run the model to generate a single stochastic trajectory.
-##' result <- run(model, threads = 1)
+##' result <- run(model)
 ##'
 ##' ## Summarize trajectory
 ##' summary(result)
